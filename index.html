@@ -1,114 +1,74 @@
-<!DOCTYPE html>
-<html lang="uk">
-<head>
-    <meta charset="UTF-8">
-    <title>Генератор розкладу А4</title>
-    <style>
-        body { font-family: Arial, sans-serif; background: #f4f4f4; padding: 20px; }
-        .no-print { text-align: center; margin-bottom: 20px; padding: 15px; background: #fff; border-radius: 8px; }
-        
-        /* Сторінка А4 */
-        .a4-page { 
-            width: 210mm; min-height: 297mm; padding: 10mm; 
-            margin: auto; background: white; box-shadow: 0 0 10px rgba(0,0,0,0.2); 
-        }
+import streamlit as st
+import pandas as pd
 
-        table { width: 100%; border-collapse: collapse; }
-        
-        /* Стиль шапки як на фото */
-        thead th { 
-            background-color: #2e2e7a; color: white; 
-            border: 1px solid white; padding: 10px 5px; 
-            font-size: 14px; text-align: center; font-weight: bold;
-        }
-        thead th span { display: block; font-size: 11px; font-weight: normal; margin-top: 4px; }
+# Налаштування сторінки
+st.set_page_config(page_title="УЗ Timetable Generator", layout="wide")
 
-        tbody td { border: 1px solid #ccc; padding: 8px; text-align: center; font-size: 13px; }
-        .station-ukr { text-align: left; font-weight: bold; min-width: 150px; }
-        .station-eng { text-align: left; color: #555; font-style: italic; background: #fdfdfd; }
-
-        button { padding: 8px 15px; cursor: pointer; background: #2e2e7a; color: white; border: none; border-radius: 4px; }
-        
-        @media print {
-            .no-print { display: none; }
-            body { background: none; padding: 0; }
-            .a4-page { box-shadow: none; margin: 0; width: 100%; }
-            thead th { background-color: #2e2e7a !important; -webkit-print-color-adjust: exact; }
-        }
-    </style>
-</head>
-<body>
-
-<div class="no-print">
-    <button onclick="addRow()">Додати станцію</button>
-    <button onclick="window.print()">Друкувати А4</button>
-    <p><small>Вводьте назву в "Станція", переклад в "Station" з'явиться автоматично (транслітерація).</small></p>
-</div>
-
-<div class="a4-page">
-    <table>
-        <thead>
-            <tr>
-                <th>Приб.<span>Arrival</span></th>
-                <th>Стоянка<span>Stop, min</span></th>
-                <th>Відпр.<span>Departure</span></th>
-                <th>Станція</th>
-                <th>Station</th>
-                <th>Приб.<span>Arrival</span></th>
-                <th>Стоянка<span>Stop, min</span></th>
-                <th>Відпр.<span>Departure</span></th>
-            </tr>
-        </thead>
-        <tbody id="timetableBody">
-            <tr>
-                <td contenteditable="true"></td>
-                <td contenteditable="true"></td>
-                <td contenteditable="true">18:38</td>
-                <td contenteditable="true" class="station-ukr" oninput="autoTranslate(this)">Одеса-Головна</td>
-                <td class="station-eng">Odesa-Holovna</td>
-                <td contenteditable="true">08:38</td>
-                <td contenteditable="true"></td>
-                <td contenteditable="true"></td>
-            </tr>
-        </tbody>
-    </table>
-</div>
-
-<script>
-    // Проста функція транслітерації для автоматичного заповнення Station
-    function transliterate(text) {
-        const map = {
-            'А':'A','Б':'B','В':'V','Г':'H','Ґ':'G','Д':'D','Е':'E','Є':'Ye','Ж':'Zh','З':'Z','И':'Y','І':'I','Ї':'Yi','Й':'Y',
-            'К':'K','Л':'L','М':'M','Н':'N','О':'O','П':'P','Р':'R','С':'S','Т':'T','У':'U','Ф':'F','Х':'Kh','Ц':'Ts','Ч':'Ch',
-            'Ш':'Sh','Щ':'Shch','Ь':'','Ю':'Yu','Я':'Ya','а':'a','б':'b','в':'v','г':'h','ґ':'g','д':'d','е':'e','є':'ye','ж':'zh',
-            'з':'z','и':'y','і':'i','ї':'yi','й':'y','к':'k','л':'l','м':'m','н':'n','о':'o','п':'p','р':'r','с':'s','т':'t',
-            'у':'u','ф':'f','х':'kh','ц':'ts','ч':'ch','ш':'sh','щ':'shch','ь':'','ю':'yu','я':'ya','\'':'','-':'-',' ': ' '
-        };
-        return text.split('').map(char => map[char] || char).join('');
+# Функція транслітерації
+def transliterate(text):
+    ukr_to_eng = {
+        'А': 'A', 'Б': 'B', 'В': 'V', 'Г': 'H', 'Ґ': 'G', 'Д': 'D', 'Е': 'E', 'Є': 'Ye', 'Ж': 'Zh', 
+        'З': 'Z', 'И': 'Y', 'І': 'I', 'Ї': 'Yi', 'Й': 'Y', 'К': 'K', 'Л': 'L', 'М': 'M', 'Н': 'N', 
+        'О': 'O', 'П': 'P', 'Р': 'R', 'С': 'S', 'Т': 'T', 'У': 'U', 'Ф': 'F', 'Х': 'Kh', 'Ц': 'Ts', 
+        'Ч': 'Ch', 'Ш': 'Sh', 'Щ': 'Shch', 'Ь': '', 'Ю': 'Yu', 'Я': 'Ya',
+        'а': 'a', 'б': 'b', 'в': 'v', 'г': 'h', 'ґ': 'g', 'д': 'd', 'е': 'e', 'є': 'ye', 'ж': 'zh', 
+        'з': 'z', 'и': 'y', 'і': 'i', 'ї': 'yi', 'й': 'y', 'к': 'k', 'л': 'l', 'м': 'm', 'н': 'n', 
+        'о': 'o', 'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u', 'ф': 'f', 'х': 'kh', 'ц': 'ts', 
+        'ч': 'ch', 'ш': 'sh', 'щ': 'shch', 'ь': '', 'ю': 'yu', 'я': 'ya', '-': '-', ' ': ' '
     }
+    return "".join(ukr_to_eng.get(c, c) for c in text)
 
-    function autoTranslate(el) {
-        const row = el.parentElement;
-        const engCell = row.querySelector('.station-eng');
-        engCell.innerText = transliterate(el.innerText);
-    }
+st.title("📋 Генератор розкладу руху")
 
-    function addRow() {
-        const tbody = document.getElementById('timetableBody');
-        const newRow = document.createElement('tr');
-        newRow.innerHTML = `
-            <td contenteditable="true"></td>
-            <td contenteditable="true"></td>
-            <td contenteditable="true"></td>
-            <td contenteditable="true" class="station-ukr" oninput="autoTranslate(this)"></td>
-            <td class="station-eng"></td>
-            <td contenteditable="true"></td>
-            <td contenteditable="true"></td>
-            <td contenteditable="true"></td>
-        `;
-        tbody.appendChild(newRow);
-    }
-</script>
+# Створюємо порожню таблицю для введення (8 колонок як на фото)
+if 'data' not in st.session_state:
+    st.session_state.data = pd.DataFrame(
+        [["", "", "", "", "", "", "", ""]],
+        columns=["Приб. (1)", "Стоянка (1)", "Відпр. (1)", "Станція", "Station", "Приб. (2)", "Стоянка (2)", "Відпр. (2)"]
+    )
 
-</body>
-</html>
+# Редагування таблиці
+edited_df = st.data_editor(st.session_state.data, num_rows="dynamic", use_container_width=True)
+
+# Автоматичне заповнення колонки Station
+if st.button("Оновити переклад (Station)"):
+    edited_df['Station'] = edited_df['Станція'].apply(transliterate)
+    st.session_state.data = edited_df
+    st.rerun()
+
+# HTML шаблон для друку (стиль як на фото)
+st.markdown("### Попередній перегляд (А4)")
+html_table = f"""
+<style>
+    .uz-table {{ width: 100%; border-collapse: collapse; font-family: Arial; }}
+    .uz-table thead th {{ 
+        background-color: #2e2e7a; color: white; border: 1px solid white; 
+        padding: 8px; text-align: center; font-size: 14px; 
+    }}
+    .uz-table thead th span {{ display: block; font-size: 10px; font-weight: normal; }}
+    .uz-table td {{ border: 1px solid black; padding: 6px; text-align: center; font-size: 13px; }}
+    .st-name {{ text-align: left; font-weight: bold; }}
+</style>
+<table class="uz-table">
+    <thead>
+        <tr>
+            <th>Приб.<span>Arrival</span></th>
+            <th>Стоянка<span>Stop, min</span></th>
+            <th>Відпр.<span>Departure</span></th>
+            <th>Станція</th>
+            <th>Station</th>
+            <th>Приб.<span>Arrival</span></th>
+            <th>Стоянка<span>Stop, min</span></th>
+            <th>Відпр.<span>Departure</span></th>
+        </tr>
+    </thead>
+    <tbody>
+        {"".join([f"<tr><td>{row[0]}</td><td>{row[1]}</td><td>{row[2]}</td><td class='st-name'>{row[3]}</td><td>{row[4]}</td><td>{row[5]}</td><td>{row[6]}</td><td>{row[7]}</td></tr>" for row in edited_df.values])}
+    </tbody>
+</table>
+"""
+
+st.markdown(html_table, unsafe_allow_content_allowed=True)
+
+if st.button("Підготувати до друку"):
+    st.write("Натисніть `Ctrl + P`, щоб зберегти як PDF.")
