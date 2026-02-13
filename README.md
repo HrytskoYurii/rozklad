@@ -1,0 +1,2 @@
+# rozklad
+rozklad ruhu
